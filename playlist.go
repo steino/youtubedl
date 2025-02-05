@@ -49,20 +49,6 @@ func extractPlaylistID(url string) (string, error) {
 	return "", ErrInvalidPlaylist
 }
 
-// structs for playlist extraction
-
-// Title: metadata.playlistMetadataRenderer.title | sidebar.playlistSidebarRenderer.items[0].playlistSidebarPrimaryInfoRenderer.title.runs[0].text
-// Description: metadata.playlistMetadataRenderer.description
-// Author: sidebar.playlistSidebarRenderer.items[1].playlistSidebarSecondaryInfoRenderer.videoOwner.videoOwnerRenderer.title.runs[0].text
-
-// Videos: contents.twoColumnBrowseResultsRenderer.tabs[0].tabRenderer.content.sectionListRenderer.contents[0].itemSectionRenderer.contents[0].playlistVideoListRenderer.contents
-// ID: .videoId
-// Title: title.runs[0].text
-// Author: .shortBylineText.runs[0].text
-// Duration: .lengthSeconds
-// Thumbnails .thumbnails
-
-// TODO?: Author thumbnails: sidebar.playlistSidebarRenderer.items[0].playlistSidebarPrimaryInfoRenderer.thumbnailRenderer.playlistVideoThumbnailRenderer.thumbnail.thumbnails
 func (p *Playlist) parsePlaylistInfo(ctx context.Context, client *Client, body []byte) (err error) {
 	info, ok := ctx.Value(contextKey("info")).(contextInfo)
 	if !ok {
@@ -89,7 +75,6 @@ func (p *Playlist) parsePlaylistInfo(ctx context.Context, client *Client, body [
 		return ErrPlaylistStatus{Reason: message}
 	}
 
-	// Metadata can be located in multiple places depending on client type
 	var metadata *sjson.Json
 	if node, ok := j.CheckGet("metadata"); ok {
 		metadata = node
@@ -116,11 +101,9 @@ func (p *Playlist) parsePlaylistInfo(ctx context.Context, client *Client, body [
 		return fmt.Errorf("contents not found in json body")
 	}
 
-	// contents can have different keys with same child structure
 	firstPart := getFirstKeyJSON(contents).GetPath("tabs").GetIndex(0).
 		GetPath("tabRenderer", "content", "sectionListRenderer", "contents").GetIndex(0)
 
-	// This extra nested item is only set with the web client
 	if n := firstPart.GetPath("itemSectionRenderer", "contents").GetIndex(0); isValidJSON(n) {
 		firstPart = n
 	}
