@@ -359,6 +359,7 @@ func (c *Client) GetStream(video *Video, format *Format) (io.ReadCloser, int64, 
 // GetStreamContext returns the stream and the total size for a specific format with a context.
 func (c *Client) GetStreamContext(ctx context.Context, video *Video, format *Format) (io.ReadCloser, int64, error) {
 	cinfo := contextInfo{
+		Self:   c,
 		Player: nil,
 		Client: video.client,
 	}
