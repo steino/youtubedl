@@ -9,12 +9,16 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"net/http/cookiejar"
 	"net/url"
+	"os"
 	"path"
 	"strconv"
 	"sync/atomic"
 
+	"github.com/mengzhuo/cookiestxt"
 	"github.com/valyala/fastjson"
 )
 
@@ -92,6 +96,35 @@ func New() (out *Client, err error) {
 		httpClient: &http.Client{},
 	}, nil
 }
+
+func (c *Client) LoadCookies(path string) (err error) {
+	f, err := os.Open("./cookies.txt")
+	if err != nil {
+		return
+	}
+
+	cookies, err := cookiestxt.Parse(f)
+	if err != nil {
+		return
+	}
+
+	jar, err := cookiejar.New(nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	u, err := url.Parse(URLs.YTBase)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	jar.SetCookies(u, cookies)
+
+	c.httpClient.Jar = jar
+
+	return
+}
+
 func (c *Client) GetVideo(id string, opts ...VideoOpts) (*Video, error) {
 	return c.GetVideoContext(context.Background(), id, opts...)
 }

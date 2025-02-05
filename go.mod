@@ -6,6 +6,7 @@ require (
 	github.com/bitly/go-simplejson v0.5.1
 	github.com/corpix/uarand v0.2.0
 	github.com/dop251/goja v0.0.0-20250125213203-5ef83b82af17
+	github.com/mengzhuo/cookiestxt v1.0.4
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/valyala/fastjson v1.6.4
 	golang.org/x/exp v0.0.0-20250128182459-e0ece0dbea4c
