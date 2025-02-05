@@ -1,4 +1,4 @@
-module youtubedl
+module github.com/steino/youtubedl
 
 go 1.23.3
 
