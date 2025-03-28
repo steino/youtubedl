@@ -189,7 +189,6 @@ func (p *Player) decipher(uri string, cipher string) (code string, err error) {
 			}
 
 			nsig = decipher(n)
-			fmt.Println(n, nsig)
 			nsigCache.Set(n, nsig, -1)
 		}
 
