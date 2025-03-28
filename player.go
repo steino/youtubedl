@@ -19,20 +19,21 @@ import (
 )
 
 type Player struct {
-	httpClient    *http.Client
-	sig_timestamp int
-	sig_sc        string
-	nsig_sc       string
-	nsig_name     string
-	nsig_check    string
-	visitorData   string
+	httpClient      *http.Client
+	sig_timestamp   int
+	sig_sc          string
+	nsig_sc         string
+	nsig_name       string
+	nsig_check      string
+	visitorData     string
+	global_variable *FindVariableResult
 }
 
 var (
 	playerRe              = regexp.MustCompile(`(?m)player\\\/(\w+)\\/`)
 	signatureTimestampRe  = regexp.MustCompile(`(?m)signatureTimestamp:(\d+),`)
-	signatureSourceCodeRe = regexp.MustCompile(`(?m)function\(([A-Za-z_0-9]+)\)\{([A-Za-z_0-9]+=[A-Za-z_0-9]+\.split\(""\)(.+?)\.join\(""\))\}`)
-	nsigCheckRe           = regexp.MustCompile(`(?m)if\(typeof (.+)==="undefined"\)return`)
+	signatureSourceCodeRe = regexp.MustCompile(`(?m)function\(([A-Za-z_0-9]+)\)\{([A-Za-z_0-9]+=[A-Za-z_0-9]+\.split\((?:[^)]+)\)(.+?)\.join\((?:[^)]+)\))\}`)
+	nsigCheckRe           = regexp.MustCompile(`(?m)if\(typeof (.+)\=\=\=.+\)return`)
 
 	nsigCache   = cache.New(-1, -1)
 	playerCache = cache.New(5*time.Minute, 10*time.Minute)
@@ -85,7 +86,6 @@ func NewPlayer() (player *Player, err error) {
 	}
 
 	player_uri.Path = path.Join(player_uri.Path, fmt.Sprintf("/s/player/%s/player_ias.vflset/en_US/base.js", player_id))
-
 	req, err := http.NewRequest("GET", player_uri.String(), nil)
 	if err != nil {
 		return
@@ -102,17 +102,22 @@ func NewPlayer() (player *Player, err error) {
 		return
 	}
 
+	player.global_variable, err = extractGlobalVariable(string(player_js))
+	if err != nil {
+		return
+	}
+
 	player.sig_timestamp, err = extractSigTimestamp(string(player_js))
 	if err != nil {
 		return
 	}
 
-	player.sig_sc, err = extractSigSourceCode(string(player_js))
+	player.sig_sc, err = extractSigSourceCode(string(player_js), player.global_variable)
 	if err != nil {
 		return
 	}
 
-	player.nsig_name, player.nsig_sc, err = extractNSigSourceCode(string(player_js))
+	player.nsig_name, player.nsig_sc, err = extractNSigSourceCode(string(player_js), player.global_variable)
 	if err != nil {
 		return
 	}
@@ -140,7 +145,7 @@ func (p *Player) decipher(uri string, cipher string) (code string, err error) {
 
 		parsed_uri, err = url.Parse(query.Get("url"))
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 
 		s := query.Get("s")
@@ -148,7 +153,7 @@ func (p *Player) decipher(uri string, cipher string) (code string, err error) {
 		vm.Set("sig", s)
 		sig, err := vm.RunString(p.sig_sc)
 		if err != nil {
-			return "", nil
+			return "", err
 		}
 
 		query2 := parsed_uri.Query()
@@ -161,10 +166,10 @@ func (p *Player) decipher(uri string, cipher string) (code string, err error) {
 
 		parsed_uri.RawQuery = query2.Encode()
 	}
-
 	query := parsed_uri.Query()
+
 	n := query.Get("n")
-	if p.nsig_sc != "" && p.nsig_check != "" && n != "" {
+	if p.nsig_sc != "" && n != "" {
 		nsig, found := nsigCache.Get(n)
 		if !found {
 			vm := goja.New()
@@ -183,11 +188,13 @@ func (p *Player) decipher(uri string, cipher string) (code string, err error) {
 				return "", err
 			}
 
-			nsig = decipher(query.Get("n"))
+			nsig = decipher(n)
+			fmt.Println(n, nsig)
 			nsigCache.Set(n, nsig, -1)
 		}
 
 		query.Set("n", nsig.(string))
+
 	}
 
 	client := query.Get("c")
@@ -213,6 +220,12 @@ func (p *Player) decipher(uri string, cipher string) (code string, err error) {
 	return parsed_uri.String(), nil
 }
 
+func extractGlobalVariable(data string) (*FindVariableResult, error) {
+	return FindVariable(string(data), FindVariableArgs{
+		Includes: "-_w8_",
+	})
+}
+
 func extractSigTimestamp(player_js string) (int, error) {
 	matches := signatureTimestampRe.FindStringSubmatch(player_js)
 
@@ -224,7 +237,7 @@ func extractSigTimestamp(player_js string) (int, error) {
 	return sig_timestamp, nil
 }
 
-func extractSigSourceCode(player_js string) (string, error) {
+func extractSigSourceCode(player_js string, g *FindVariableResult) (string, error) {
 	matches := signatureSourceCodeRe.FindStringSubmatch(player_js)
 
 	var_name := string(matches[1])
@@ -243,16 +256,40 @@ func extractSigSourceCode(player_js string) (string, error) {
 
 	functions := re.FindStringSubmatch(player_js)[1]
 
-	return fmt.Sprintf("function descramble_sig(%s) { let %s={%s}; %s} descramble_sig(sig);", var_name, obj_name, functions, matches[2]), nil
+	return fmt.Sprintf("%s;function descramble_sig(%s) { let %s={%s}; %s} descramble_sig(sig);", g.Result, var_name, obj_name, functions, matches[2]), nil
 }
 
-func extractNSigSourceCode(data string) (name string, code string, err error) {
+func extractNSigSourceCode(data string, g *FindVariableResult) (name string, code string, err error) {
 	nsig_function, err := FindFunction(string(data), FindFunctionArgs{
-		Includes: "enhanced_except",
+		Includes: fmt.Sprintf("new Date(%s", g.Name),
 	})
 	if err != nil {
 		return
 	}
+
+	// For redundancy/the above fails:
+	if nsig_function == nil {
+		nsig_function, err = FindFunction(string(data), FindFunctionArgs{
+			Includes: ".push(String.fromCharCode(",
+		})
+		if err != nil {
+			return
+		}
+	}
+	if nsig_function == nil {
+		nsig_function, err = FindFunction(string(data), FindFunctionArgs{
+			Includes: ".reverse().forEach(function",
+		})
+		if err != nil {
+			return
+		}
+	}
+
+	if nsig_function != nil {
+		sc := fmt.Sprintf("%s; var %s", g.Result, nsig_function.Result)
+		return nsig_function.Name, sc, nil
+	}
+
 	if nsig_function == nil {
 		nsig_function, err = FindFunction(string(data), FindFunctionArgs{
 			Includes: "-_w8_",
@@ -276,6 +313,87 @@ func extractNSigSourceCode(data string) (name string, code string, err error) {
 	}
 
 	return
+}
+
+type FindVariableArgs struct {
+	Name     string
+	Includes string
+	Regexp   string
+}
+
+type FindVariableResult struct {
+	Start  int
+	End    int
+	Name   string
+	Node   ast.Node
+	Result string
+}
+
+func FindVariable(source string, args FindVariableArgs) (*FindVariableResult, error) {
+	var reg *regexp.Regexp
+	var err error
+
+	if args.Regexp != "" {
+		reg, err = regexp.Compile(args.Regexp)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	program, err := parser.ParseFile(nil, "", source, 0)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing JavaScript: %v", err)
+	}
+
+	var stack []ast.Statement
+	stack = append(stack, program.Body...)
+
+	for len(stack) > 0 {
+		current := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		switch node := current.(type) {
+		case *ast.ExpressionStatement:
+			switch a := node.Expression.(type) {
+			case *ast.CallExpression:
+				switch a := a.Callee.(type) {
+				case *ast.FunctionLiteral:
+					for _, v := range a.DeclarationList {
+						for _, va := range v.List {
+							switch ab := va.Initializer.(type) {
+							case *ast.CallExpression:
+								c, ok := ab.Callee.(*ast.DotExpression)
+								if !ok {
+									continue
+								}
+
+								id, ok := va.Target.(*ast.Identifier)
+								if !ok {
+									continue
+								}
+								code, ok := c.Left.(*ast.StringLiteral)
+								if !ok {
+									continue
+								}
+
+								if (args.Includes != "" && strings.Index(code.Value.String(), args.Includes) > 0) || (args.Regexp != "" && reg.MatchString(code.Value.String())) {
+									result := source[va.Idx0()-1 : va.Idx1()-1]
+									return &FindVariableResult{
+										Start:  int(va.Idx0()),
+										End:    int(va.Idx1()),
+										Name:   id.Name.String(),
+										Node:   va,
+										Result: result,
+									}, nil
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return nil, nil
 }
 
 // FindFunctionArgs defines the search parameters
@@ -348,7 +466,6 @@ func FindFunction(source string, args FindFunctionArgs) (*FindFunctionResult, er
 				switch a := a.Callee.(type) {
 				case *ast.FunctionLiteral:
 					stack = append(stack, a.Body.List...)
-
 				}
 			}
 		}
