@@ -152,6 +152,10 @@ func (c *Client) GetVideo(id string, opts ...VideoOpts) (*Video, error) {
 }
 
 func (c *Client) GetVideoContext(ctx context.Context, id string, opts ...VideoOpts) (*Video, error) {
+	id, err := ExtractVideoID(id)
+	if err != nil {
+		return nil, fmt.Errorf("extractVideoID failed: %w", err)
+	}
 	optsMap := videooptions{}
 
 	for _, opt := range opts {
