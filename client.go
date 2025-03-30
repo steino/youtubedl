@@ -85,7 +85,29 @@ type innertubeClient struct {
 	VisitorData       string `json:"visitorData,omitempty"`
 }
 
-func New() (out *Client, err error) {
+type clientoptions struct {
+	httpClient *http.Client
+}
+
+type ClientOpts func(*clientoptions)
+
+func WithHTTPClient(client *http.Client) ClientOpts {
+	return func(o *clientoptions) {
+		o.httpClient = client
+	}
+}
+
+func New(opts ...ClientOpts) (out *Client, err error) {
+	optsMap := clientoptions{}
+
+	for _, opt := range opts {
+		opt(&optsMap)
+	}
+
+	if optsMap.httpClient == nil {
+		optsMap.httpClient = &http.Client{}
+	}
+
 	player, err := NewPlayer()
 	if err != nil {
 		return
@@ -93,7 +115,7 @@ func New() (out *Client, err error) {
 
 	return &Client{
 		player:     player,
-		httpClient: &http.Client{},
+		httpClient: optsMap.httpClient,
 	}, nil
 }
 
