@@ -3,7 +3,6 @@ module github.com/steino/youtubedl
 go 1.23.3
 
 require (
-	github.com/bitly/go-simplejson v0.5.1
 	github.com/corpix/uarand v0.2.0
 	github.com/dop251/goja v0.0.0-20250125213203-5ef83b82af17
 	github.com/mengzhuo/cookiestxt v1.0.4
