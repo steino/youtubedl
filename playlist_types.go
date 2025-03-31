@@ -28,7 +28,7 @@ type PlaylistVideoRenderer struct {
 	ShortBylineText struct {
 		Runs []textRun `json:"runs"`
 	} `json:"shortBylineText"`
-	LengthSeconds string `json:"lengthSeconds"`
+	LengthSeconds *string `json:"lengthSeconds"`
 	VideoInfo     struct {
 		Runs []textRun `json:"runs"`
 	} `json:"videoInfo"`

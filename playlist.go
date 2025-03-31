@@ -30,7 +30,7 @@ type PlaylistEntry struct {
 	ID       string
 	Title    string
 	Author   string
-	Duration time.Duration
+	Duration *time.Duration
 }
 
 func extractPlaylistID(url string) (string, error) {
@@ -158,16 +158,26 @@ func extractPlaylistEntries(vids []PlaylistVideoListContents) ([]*PlaylistEntry,
 }
 
 func (vje PlaylistVideoRenderer) PlaylistEntry() *PlaylistEntry {
-	ds, err := strconv.Atoi(vje.LengthSeconds)
-	if err != nil {
-		panic("invalid video duration: " + vje.LengthSeconds)
+	if vje.LengthSeconds == nil {
+		return &PlaylistEntry{
+			ID:       vje.VideoID,
+			Title:    vje.Title.Runs[0].Text,
+			Author:   vje.ShortBylineText.Runs[0].Text,
+			Duration: nil,
+		}
 	}
+
+	val, err := strconv.Atoi(*vje.LengthSeconds)
+	if err != nil {
+		panic("invalid video duration: " + *vje.LengthSeconds)
+	}
+	d := time.Second * time.Duration(val)
 
 	return &PlaylistEntry{
 		ID:       vje.VideoID,
 		Title:    vje.Title.Runs[0].Text,
 		Author:   vje.ShortBylineText.Runs[0].Text,
-		Duration: time.Second * time.Duration(ds),
+		Duration: &d,
 	}
 }
 
