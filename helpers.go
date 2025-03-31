@@ -22,7 +22,7 @@ type contextInfo struct {
 	VisitorData string
 }
 
-func httpPostBodyBytes(ctx context.Context, url string, body interface{}) ([]byte, error) {
+func httpPostBodyBytes(ctx context.Context, url string, body any) ([]byte, error) {
 	resp, err := httpPost(ctx, url, body)
 	if err != nil {
 		return nil, err
@@ -32,7 +32,7 @@ func httpPostBodyBytes(ctx context.Context, url string, body interface{}) ([]byt
 	return io.ReadAll(resp.Body)
 }
 
-func httpPost(ctx context.Context, url string, body interface{}) (*http.Response, error) {
+func httpPost(ctx context.Context, url string, body any) (*http.Response, error) {
 	info, ok := ctx.Value(contextKey("info")).(contextInfo)
 	if !ok {
 		return nil, errors.New("context values not set")

@@ -288,13 +288,11 @@ func extractNSigSourceCode(data string, g *FindVariableResult) (name string, cod
 		return nsig_function.Name, sc, nil
 	}
 
-	if nsig_function == nil {
-		nsig_function, err = FindFunction(string(data), FindFunctionArgs{
-			Includes: "-_w8_",
-		})
-		if err != nil {
-			return
-		}
+	nsig_function, err = FindFunction(string(data), FindFunctionArgs{
+		Includes: "-_w8_",
+	})
+	if err != nil {
+		return
 	}
 
 	if nsig_function == nil {

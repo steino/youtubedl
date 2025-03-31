@@ -280,7 +280,7 @@ func (c *Client) GetPlaylistContext(ctx context.Context, uri string, opts ...Vid
 	}
 
 	p := &Playlist{ID: id}
-	return p, p.parsePlaylistInfo(ctx, c, body)
+	return p, p.parsePlaylistInfo(ctx, body)
 }
 
 func (c *Client) VideoFromPlaylistEntry(entry *PlaylistEntry, opts ...VideoOpts) (*Video, error) {
