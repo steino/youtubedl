@@ -77,7 +77,9 @@ func (p *Playlist) parsePlaylistInfo(ctx context.Context, body []byte) (err erro
 
 	p.Title = playlistMetadata.Title
 	p.Description = playlistMetadata.Description
-	p.Author = playlistSidebarSecondaryInfoRenderer.VideoOwner.VideoOwnerRenderer.Title.Runs[0].Text
+	if len(playlistSidebarSecondaryInfoRenderer.VideoOwner.VideoOwnerRenderer.Title.Runs) > 0 {
+		p.Author = playlistSidebarSecondaryInfoRenderer.VideoOwner.VideoOwnerRenderer.Title.Runs[0].Text
+	}
 
 	contents := response.Contents
 	if contents == nil {
