@@ -11,8 +11,6 @@ import (
 	"runtime/debug"
 	"strconv"
 	"time"
-
-	sjson "github.com/bitly/go-simplejson"
 )
 
 var (
@@ -32,7 +30,7 @@ type PlaylistEntry struct {
 	ID       string
 	Title    string
 	Author   string
-	Duration time.Duration
+	Duration *time.Duration
 }
 
 func extractPlaylistID(url string) (string, error) {
@@ -49,15 +47,14 @@ func extractPlaylistID(url string) (string, error) {
 	return "", ErrInvalidPlaylist
 }
 
-func (p *Playlist) parsePlaylistInfo(ctx context.Context, client *Client, body []byte) (err error) {
+func (p *Playlist) parsePlaylistInfo(ctx context.Context, body []byte) (err error) {
 	info, ok := ctx.Value(contextKey("info")).(contextInfo)
 	if !ok {
 		return errors.New("client is not set")
 	}
 
-	var j *sjson.Json
-	j, err = sjson.NewJson(body)
-	if err != nil {
+	var response YouTubeResponse
+	if err := json.Unmarshal(body, &response); err != nil {
 		return err
 	}
 
@@ -68,62 +65,37 @@ func (p *Playlist) parsePlaylistInfo(ctx context.Context, client *Client, body [
 		}
 	}()
 
-	renderer := j.GetPath("alerts").GetIndex(0).GetPath("alertRenderer")
-	if renderer != nil && renderer.GetPath("type").MustString() == "ERROR" {
-		message := renderer.GetPath("text", "runs").GetIndex(0).GetPath("text").MustString()
-
-		return ErrPlaylistStatus{Reason: message}
+	playlistMetadata := response.Metadata.PlaylistMetadataRenderer
+	if playlistMetadata == nil {
+		return fmt.Errorf("playlistMetadataRenderer not found in json body")
 	}
 
-	var metadata *sjson.Json
-	if node, ok := j.CheckGet("metadata"); ok {
-		metadata = node
-	} else if node, ok := j.CheckGet("header"); ok {
-		metadata = node
-	} else {
-		return fmt.Errorf("no playlist header / metadata found")
+	playlistSidebarSecondaryInfoRenderer := response.Sidebar.PlaylistSidebarRenderer.Items[1].PlaylistSidebarSecondaryInfoRenderer
+	if playlistSidebarSecondaryInfoRenderer == nil {
+		return fmt.Errorf("PlaylistSidebarSecondaryInfoRenderer not found in json body")
 	}
 
-	metadata = metadata.Get("playlistHeaderRenderer")
-
-	p.Title = sjsonGetText(metadata, "title")
-	p.Description = sjsonGetText(metadata, "description", "descriptionText")
-	p.Author = j.GetPath("sidebar", "playlistSidebarRenderer", "items").GetIndex(1).
-		GetPath("playlistSidebarSecondaryInfoRenderer", "videoOwner", "videoOwnerRenderer", "title", "runs").
-		GetIndex(0).Get("text").MustString()
-
-	if len(p.Author) == 0 {
-		p.Author = sjsonGetText(metadata, "owner", "ownerText")
+	p.Title = playlistMetadata.Title
+	p.Description = playlistMetadata.Description
+	if len(playlistSidebarSecondaryInfoRenderer.VideoOwner.VideoOwnerRenderer.Title.Runs) > 0 {
+		p.Author = playlistSidebarSecondaryInfoRenderer.VideoOwner.VideoOwnerRenderer.Title.Runs[0].Text
 	}
 
-	contents, ok := j.CheckGet("contents")
-	if !ok {
+	contents := response.Contents
+	if contents == nil {
 		return fmt.Errorf("contents not found in json body")
 	}
 
-	firstPart := getFirstKeyJSON(contents).GetPath("tabs").GetIndex(0).
-		GetPath("tabRenderer", "content", "sectionListRenderer", "contents").GetIndex(0)
+	firstPart := contents.TwoColumnBrowseResultsRenderer.Tabs[0].TabRenderer.Content.SectionListRenderer.Contents[0]
 
-	if n := firstPart.GetPath("itemSectionRenderer", "contents").GetIndex(0); isValidJSON(n) {
-		firstPart = n
-	}
+	var entries []*PlaylistEntry
+	var continuation string
 
-	vJSON, err := firstPart.GetPath("playlistVideoListRenderer", "contents").MarshalJSON()
-	if err != nil {
-		return err
-	}
-
-	if len(vJSON) <= 4 {
-		return fmt.Errorf("no video data found in JSON")
-	}
-
-	entries, continuation, err := extractPlaylistEntries(vJSON)
-	if err != nil {
-		return err
-	}
-
-	if len(continuation) == 0 {
-		continuation = getContinuation(firstPart.Get("playlistVideoListRenderer"))
+	if firstPart.ItemSectionRenderer.Contents != nil {
+		entries, continuation, err = extractPlaylistEntries(*firstPart.ItemSectionRenderer.Contents[0].PlaylistVideoListRenderer.Contents)
+		if err != nil {
+			return err
+		}
 	}
 
 	if len(entries) == 0 {
@@ -150,91 +122,64 @@ func (p *Playlist) parsePlaylistInfo(ctx context.Context, client *Client, body [
 			return err
 		}
 
-		j, err := sjson.NewJson(body)
+		if err := json.Unmarshal(body, &response); err != nil {
+			return err
+		}
+
+		entries, token, err := extractPlaylistEntries(*response.OnResponseReceivedActions[0].AppendContinuationItemsAction.ContinuationItems)
 		if err != nil {
 			return err
 		}
 
-		next := j.GetPath("onResponseReceivedActions").GetIndex(0).
-			GetPath("appendContinuationItemsAction", "continuationItems")
-
-		if !isValidJSON(next) {
-			next = j.GetPath("continuationContents", "playlistVideoListContinuation", "contents")
-		}
-
-		vJSON, err := next.MarshalJSON()
-		if err != nil {
-			return err
-		}
-
-		entries, token, err := extractPlaylistEntries(vJSON)
-		if err != nil {
-			return err
-		}
+		p.Videos = append(p.Videos, entries...)
 
 		if len(token) > 0 {
 			continuation = token
 		} else {
-			continuation = getContinuation(j.GetPath("continuationContents", "playlistVideoListContinuation"))
+			break
 		}
-
-		p.Videos = append(p.Videos, entries...)
 	}
 
 	return err
 }
 
-func extractPlaylistEntries(data []byte) ([]*PlaylistEntry, string, error) {
-	var vids []*videosJSONExtractor
-
-	if err := json.Unmarshal(data, &vids); err != nil {
-		return nil, "", err
-	}
-
+func extractPlaylistEntries(vids []PlaylistVideoListContents) ([]*PlaylistEntry, string, error) {
+	var continuation string
 	entries := make([]*PlaylistEntry, 0, len(vids))
 
-	var continuation string
 	for _, v := range vids {
-		if v.Renderer == nil {
-			if v.Continuation.Endpoint.Command.Token != "" {
-				continuation = v.Continuation.Endpoint.Command.Token
-			}
-
+		if v.PlaylistVideoRenderer == nil && v.ContinuationItemRenderer != nil {
+			continuation = v.ContinuationItemRenderer.ContinuationEndpoint.ContinuationCommand.Token
 			continue
 		}
 
-		entries = append(entries, v.PlaylistEntry())
+		entries = append(entries, v.PlaylistVideoRenderer.PlaylistEntry())
 	}
 
 	return entries, continuation, nil
 }
 
-type videosJSONExtractor struct {
-	Renderer *struct {
-		ID       string   `json:"videoId"`
-		Title    withRuns `json:"title"`
-		Author   withRuns `json:"shortBylineText"`
-		Duration string   `json:"lengthSeconds"`
-	} `json:"playlistVideoRenderer"`
-	Continuation struct {
-		Endpoint struct {
-			Command struct {
-				Token string `json:"token"`
-			} `json:"continuationCommand"`
-		} `json:"continuationEndpoint"`
-	} `json:"continuationItemRenderer"`
-}
-
-func (vje videosJSONExtractor) PlaylistEntry() *PlaylistEntry {
-	ds, err := strconv.Atoi(vje.Renderer.Duration)
-	if err != nil {
-		panic("invalid video duration: " + vje.Renderer.Duration)
+func (vje PlaylistVideoRenderer) PlaylistEntry() *PlaylistEntry {
+	if vje.LengthSeconds == nil {
+		return &PlaylistEntry{
+			ID:       vje.VideoID,
+			Title:    vje.Title.Runs[0].Text,
+			Author:   vje.ShortBylineText.Runs[0].Text,
+			Duration: nil,
+		}
 	}
+
+	val, err := strconv.Atoi(*vje.LengthSeconds)
+	if err != nil {
+		panic("invalid video duration: " + *vje.LengthSeconds)
+	}
+	d := time.Second * time.Duration(val)
+
 	return &PlaylistEntry{
-		ID:       vje.Renderer.ID,
-		Title:    vje.Renderer.Title.String(),
-		Author:   vje.Renderer.Author.String(),
-		Duration: time.Second * time.Duration(ds),
+		ID:       vje.VideoID,
+		Title:    vje.Title.Runs[0].Text,
+		Author:   vje.ShortBylineText.Runs[0].Text,
+		Duration: &d,
 	}
 }
 

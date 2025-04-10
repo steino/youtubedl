@@ -6,6 +6,7 @@ package youtubedl
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -19,7 +20,6 @@ import (
 	"sync/atomic"
 
 	"github.com/mengzhuo/cookiestxt"
-	"github.com/valyala/fastjson"
 )
 
 var defaultYoutubeClient = "WEB"
@@ -280,7 +280,7 @@ func (c *Client) GetPlaylistContext(ctx context.Context, uri string, opts ...Vid
 	}
 
 	p := &Playlist{ID: id}
-	return p, p.parsePlaylistInfo(ctx, c, body)
+	return p, p.parsePlaylistInfo(ctx, body)
 }
 
 func (c *Client) VideoFromPlaylistEntry(entry *PlaylistEntry, opts ...VideoOpts) (*Video, error) {
@@ -356,14 +356,34 @@ func getVisitorData() (out string, err error) {
 		return
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
-
-	js, err := fastjson.ParseBytes(body[6:])
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
 
-	return string(js.GetStringBytes("0", "2", "0", "0", "13")), nil
+	jsonData := body[6:]
+
+	var data []interface{}
+	err = json.Unmarshal(jsonData, &data)
+	if err != nil {
+		return
+	}
+
+	if len(data) > 0 {
+		if level1, ok := data[0].([]interface{}); ok && len(level1) > 2 {
+			if level2, ok := level1[2].([]interface{}); ok && len(level2) > 0 {
+				if level3, ok := level2[0].([]interface{}); ok && len(level3) > 0 {
+					if level4, ok := level3[0].([]interface{}); ok && len(level4) > 13 {
+						if visitorData, ok := level4[13].(string); ok {
+							return visitorData, nil
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("visitor data not found in expected structure")
 }
 
 func (c *Client) GetStreamURL(video *Video, format *Format) (string, error) {

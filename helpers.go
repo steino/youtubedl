@@ -3,15 +3,14 @@ package youtubedl
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
 	"net/http"
 	"strconv"
+	"time"
 
-	sjson "github.com/bitly/go-simplejson"
 	"golang.org/x/exp/rand"
 )
 
@@ -23,7 +22,7 @@ type contextInfo struct {
 	VisitorData string
 }
 
-func httpPostBodyBytes(ctx context.Context, url string, body interface{}) ([]byte, error) {
+func httpPostBodyBytes(ctx context.Context, url string, body any) ([]byte, error) {
 	resp, err := httpPost(ctx, url, body)
 	if err != nil {
 		return nil, err
@@ -33,7 +32,7 @@ func httpPostBodyBytes(ctx context.Context, url string, body interface{}) ([]byt
 	return io.ReadAll(resp.Body)
 }
 
-func httpPost(ctx context.Context, url string, body interface{}) (*http.Response, error) {
+func httpPost(ctx context.Context, url string, body any) (*http.Response, error) {
 	info, ok := ctx.Value(contextKey("info")).(contextInfo)
 	if !ok {
 		return nil, errors.New("context values not set")
@@ -159,71 +158,37 @@ func getChunks(totalSize, chunkSize int64) []chunk {
 	return chunks
 }
 
-func getFirstKeyJSON(j *sjson.Json) *sjson.Json {
-	m, err := j.Map()
-	if err != nil {
-		return j
-	}
-
-	for key := range m {
-		return j.Get(key)
-	}
-
-	return j
+var userAgents = []string{
+	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Safari/605.1.15",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36 Edg/109.0.1518.61",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.2 Safari/605.1.15",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/108.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/109.0.0.0 Safari/537.36",
 }
 
-func isValidJSON(j *sjson.Json) bool {
-	b, err := j.MarshalJSON()
-	if err != nil {
-		return false
-	}
-
-	if len(b) <= 4 {
-		return false
-	}
-
-	return true
-}
-
-func sjsonGetText(j *sjson.Json, paths ...string) string {
-	for _, path := range paths {
-		if isValidJSON(j.Get(path)) {
-			j = j.Get(path)
-		}
-	}
-
-	if text, err := j.String(); err == nil {
-		return text
-	}
-
-	if isValidJSON(j.Get("text")) {
-		return j.Get("text").MustString()
-	}
-
-	if p := j.Get("runs"); isValidJSON(p) {
-		var text string
-
-		for i := 0; i < len(p.MustArray()); i++ {
-			if textNode := p.GetIndex(i).Get("text"); isValidJSON(textNode) {
-				text += textNode.MustString()
-			}
-		}
-
-		return text
-	}
-
-	return ""
-}
-
-func getContinuation(j *sjson.Json) string {
-	return j.GetPath("continuations").
-		GetIndex(0).GetPath("nextContinuationData", "continuation").MustString()
-}
-
-func base64PadEnc(str string) string {
-	return base64.StdEncoding.EncodeToString([]byte(str))
-}
-
-func base64Enc(str string) string {
-	return base64.RawStdEncoding.EncodeToString([]byte(str))
+func RandomUserAgent() string {
+	rand.Seed(uint64(time.Now().UnixNano()))
+	randomIndex := rand.Intn(len(userAgents))
+	return userAgents[randomIndex]
 }

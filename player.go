@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/corpix/uarand"
 	"github.com/dop251/goja"
 	"github.com/dop251/goja/ast"
 	"github.com/dop251/goja/parser"
@@ -90,7 +89,7 @@ func NewPlayer() (player *Player, err error) {
 	if err != nil {
 		return
 	}
-	req.Header.Add("User-Agent", uarand.GetRandom())
+	req.Header.Add("User-Agent", RandomUserAgent())
 
 	player_resp, err := player.httpClient.Do(req)
 	if err != nil {
@@ -289,13 +288,11 @@ func extractNSigSourceCode(data string, g *FindVariableResult) (name string, cod
 		return nsig_function.Name, sc, nil
 	}
 
-	if nsig_function == nil {
-		nsig_function, err = FindFunction(string(data), FindFunctionArgs{
-			Includes: "-_w8_",
-		})
-		if err != nil {
-			return
-		}
+	nsig_function, err = FindFunction(string(data), FindFunctionArgs{
+		Includes: "-_w8_",
+	})
+	if err != nil {
+		return
 	}
 
 	if nsig_function == nil {
