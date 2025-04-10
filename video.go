@@ -23,9 +23,16 @@ type Video struct {
 	Duration        time.Duration
 	PublishDate     time.Time
 	Formats         FormatList
+	Thumbnails      []Thumbnail
 	DASHManifestURL string // URI of the DASH manifest file
 	HLSManifestURL  string // URI of the HLS manifest file
 	client          *YoutubeClient
+}
+
+type Thumbnail struct {
+	URL    string
+	Width  uint
+	Height uint
 }
 type videooptions struct {
 	client string
@@ -109,6 +116,7 @@ func (v *Video) extractDataFromPlayerResponse(prData playerResponseData) error {
 	v.Title = prData.VideoDetails.Title
 	v.Description = prData.VideoDetails.ShortDescription
 	v.Author = prData.VideoDetails.Author
+	v.Thumbnails = prData.VideoDetails.Thumbnail.Thumbnails
 	v.ChannelID = prData.VideoDetails.ChannelID
 
 	if views, _ := strconv.Atoi(prData.VideoDetails.ViewCount); views > 0 {
@@ -189,21 +197,24 @@ type playerResponseData struct {
 		HlsManifestURL   string   `json:"hlsManifestUrl"`
 	} `json:"streamingData"`
 	VideoDetails struct {
-		VideoID           string   `json:"videoId"`
-		Title             string   `json:"title"`
-		LengthSeconds     string   `json:"lengthSeconds"`
-		Keywords          []string `json:"keywords"`
-		ChannelID         string   `json:"channelId"`
-		IsOwnerViewing    bool     `json:"isOwnerViewing"`
-		ShortDescription  string   `json:"shortDescription"`
-		IsCrawlable       bool     `json:"isCrawlable"`
-		AverageRating     float64  `json:"averageRating"`
-		AllowRatings      bool     `json:"allowRatings"`
-		ViewCount         string   `json:"viewCount"`
-		Author            string   `json:"author"`
-		IsPrivate         bool     `json:"isPrivate"`
-		IsUnpluggedCorpus bool     `json:"isUnpluggedCorpus"`
-		IsLiveContent     bool     `json:"isLiveContent"`
+		VideoID          string   `json:"videoId"`
+		Title            string   `json:"title"`
+		LengthSeconds    string   `json:"lengthSeconds"`
+		Keywords         []string `json:"keywords"`
+		ChannelID        string   `json:"channelId"`
+		IsOwnerViewing   bool     `json:"isOwnerViewing"`
+		ShortDescription string   `json:"shortDescription"`
+		IsCrawlable      bool     `json:"isCrawlable"`
+		Thumbnail        struct {
+			Thumbnails []Thumbnail `json:"thumbnails"`
+		} `json:"thumbnail"`
+		AverageRating     float64 `json:"averageRating"`
+		AllowRatings      bool    `json:"allowRatings"`
+		ViewCount         string  `json:"viewCount"`
+		Author            string  `json:"author"`
+		IsPrivate         bool    `json:"isPrivate"`
+		IsUnpluggedCorpus bool    `json:"isUnpluggedCorpus"`
+		IsLiveContent     bool    `json:"isLiveContent"`
 	} `json:"videoDetails"`
 	Microformat struct {
 		PlayerMicroformatRenderer struct {
