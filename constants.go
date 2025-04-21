@@ -2,18 +2,63 @@
 package youtubedl
 
 var Clients = map[string]YoutubeClient{
-    "WEB_CREATOR": {
-        Name: "WEB_CREATOR",
-        Version: "1.20240918.03.00",
+    "WEB_KIDS": {
+        Name: "WEB_KIDS",
+        Version: "2.20250221.11.00",
+    },
+    "YTMUSIC": {
+        Name: "WEB_REMIX",
+        Version: "1.20250219.01.00",
+    },
+    "YTSTUDIO_ANDROID": {
+        Name: "ANDROID_CREATOR",
+        Version: "22.43.101",
+    },
+    "YTMUSIC_ANDROID": {
+        Name: "ANDROID_MUSIC",
+        Version: "5.34.51",
+    },
+    "TV": {
+        Name: "TVHTML5",
+        Version: "7.20250219.14.00",
+        UserAgent: "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version",
+    },
+    "TV_EMBEDDED": {
+        Name: "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
+        Version: "2.0",
+    },
+    "IOS": {
+        Name: "iOS",
+        Version: "20.11.6",
+        UserAgent: "com.google.ios.youtube/20.11.6 (iPhone10,4; U; CPU iOS 16_7_7 like Mac OS X)",
+        DeviceModel: "iPhone10,4",
+    },
+    "WEB": {
+        Name: "WEB",
+        Version: "2.20250222.10.00",
+        APIKey: "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+        APIVersion: "v1",
+        StaticVisitor: "6zpwvWUNAco",
+        SuggestionExp: "ytzpb5_e2,ytpo.bo.lqp.elu=1,ytpo.bo.lqp.ecsc=1,ytpo.bo.lqp.mcsc=3,ytpo.bo.lqp.mec=1,ytpo.bo.lqp.rw=0.8,ytpo.bo.lqp.fw=0.2,ytpo.bo.lqp.szp=1,ytpo.bo.lqp.mz=3,ytpo.bo.lqp.al=en_us,ytpo.bo.lqp.zrm=1,ytpo.bo.lqp.er=1,ytpo.bo.ro.erl=1,ytpo.bo.ro.mlus=3,ytpo.bo.ro.erls=3,ytpo.bo.qfo.mlus=3,ytzprp.ppp.e=1,ytzprp.ppp.st=772,ytzprp.ppp.p=5",
+    },
+    "WEB_EMBEDDED": {
+        Name: "WEB_EMBEDDED_PLAYER",
+        Version: "1.20250219.01.00",
         APIKey: "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
         APIVersion: "v1",
         StaticVisitor: "6zpwvWUNAco",
     },
-    "IOS": {
-        Name: "iOS",
-        Version: "18.06.35",
-        UserAgent: "com.google.ios.youtube/18.06.35 (iPhone; CPU iPhone OS 14_4 like Mac OS X; en_US)",
-        DeviceModel: "iPhone10,6",
+    "WEB_CREATOR": {
+        Name: "WEB_CREATOR",
+        Version: "1.20241203.01.00",
+        APIKey: "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
+        APIVersion: "v1",
+        StaticVisitor: "6zpwvWUNAco",
+    },
+    "MWEB": {
+        Name: "MWEB",
+        Version: "2.20250224.01.00",
+        APIVersion: "v1",
     },
     "ANDROID": {
         Name: "ANDROID",
@@ -21,79 +66,34 @@ var Clients = map[string]YoutubeClient{
         UserAgent: "com.google.android.youtube/19.35.36(Linux; U; Android 13; en_US; SM-S908E Build/TP1A.220624.014) gzip",
         SDKVersion: 33,
     },
-    "YTSTUDIO_ANDROID": {
-        Name: "ANDROID_CREATOR",
-        Version: "22.43.101",
-    },
-    "TV": {
-        Name: "TVHTML5",
-        Version: "7.20241016.15.00",
-        UserAgent: "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version",
-    },
-    "TV_EMBEDDED": {
-        Name: "TVHTML5_SIMPLY_EMBEDDED_PLAYER",
-        Version: "2.0",
-    },
-    "WEB_EMBEDDED": {
-        Name: "WEB_EMBEDDED_PLAYER",
-        Version: "2.20240111.09.00",
-        APIKey: "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
-        APIVersion: "v1",
-        StaticVisitor: "6zpwvWUNAco",
-    },
-    "WEB": {
-        Name: "WEB",
-        Version: "2.20241121.01.00",
-        APIKey: "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8",
-        APIVersion: "v1",
-        StaticVisitor: "6zpwvWUNAco",
-        SuggestionExp: "ytzpb5_e2,ytpo.bo.lqp.elu=1,ytpo.bo.lqp.ecsc=1,ytpo.bo.lqp.mcsc=3,ytpo.bo.lqp.mec=1,ytpo.bo.lqp.rw=0.8,ytpo.bo.lqp.fw=0.2,ytpo.bo.lqp.szp=1,ytpo.bo.lqp.mz=3,ytpo.bo.lqp.al=en_us,ytpo.bo.lqp.zrm=1,ytpo.bo.lqp.er=1,ytpo.bo.ro.erl=1,ytpo.bo.ro.mlus=3,ytpo.bo.ro.erls=3,ytpo.bo.qfo.mlus=3,ytzprp.ppp.e=1,ytzprp.ppp.st=772,ytzprp.ppp.p=5",
-    },
-    "MWEB": {
-        Name: "MWEB",
-        Version: "2.20241205.01.00",
-        APIVersion: "v1",
-    },
-    "WEB_KIDS": {
-        Name: "WEB_KIDS",
-        Version: "2.20230111.00.00",
-    },
-    "YTMUSIC": {
-        Name: "WEB_REMIX",
-        Version: "1.20211213.00.00",
-    },
-    "YTMUSIC_ANDROID": {
-        Name: "ANDROID_MUSIC",
-        Version: "5.34.51",
-    },
 }
 
 var ClientNameIDs = map[string]string{
+    "iOS": "5",
+    "WEB": "1",
+    "MWEB": "2",
+    "WEB_REMIX": "67",
     "ANDROID_CREATOR": "14",
     "ANDROID_MUSIC": "21",
-    "TVHTML5_SIMPLY_EMBEDDED_PLAYER": "85",
-    "iOS": "5",
-    "MWEB": "2",
+    "WEB_EMBEDDED_PLAYER": "56",
+    "WEB_KIDS": "76",
     "ANDROID": "3",
     "TVHTML5": "7",
-    "WEB_EMBEDDED_PLAYER": "56",
+    "TVHTML5_SIMPLY_EMBEDDED_PLAYER": "85",
     "WEB_CREATOR": "62",
-    "WEB": "1",
-    "WEB_KIDS": "76",
-    "WEB_REMIX": "67",
 }
 
 var InnerTubeHeadersBase = map[string]string{
-    "content-type": "application/json",
     "accept": "*/*",
     "accept-encoding": "gzip, deflate",
+    "content-type": "application/json",
 }
 
 var StreamHeaders = map[string]string{
+    "DNT": "?1",
     "accept": "*/*",
     "origin": "https://www.youtube.com",
     "referer": "https://www.youtube.com",
-    "DNT": "?1",
 }
 
 var SupportedClients = []string{
@@ -124,14 +124,14 @@ var URLs = struct {
     YTSuggestions: "https://suggestqueries-clients6.youtube.com",
     YTUpload: "https://upload.youtube.com/",
     API: map[string]string{
-        "STAGING": "https://green-youtubei.sandbox.googleapis.com/youtubei/",
-        "RELEASE": "https://release-youtubei.sandbox.googleapis.com/youtubei/",
-        "TEST": "https://test-youtubei.sandbox.googleapis.com/youtubei/",
-        "CAMI": "http://cami-youtubei.sandbox.googleapis.com/youtubei/",
         "UYTFE": "https://uytfe.sandbox.google.com/youtubei/",
         "BASE": "https://youtubei.googleapis.com",
         "PRODUCTION_1": "https://www.youtube.com/youtubei/",
         "PRODUCTION_2": "https://youtubei.googleapis.com/youtubei/",
+        "STAGING": "https://green-youtubei.sandbox.googleapis.com/youtubei/",
+        "RELEASE": "https://release-youtubei.sandbox.googleapis.com/youtubei/",
+        "TEST": "https://test-youtubei.sandbox.googleapis.com/youtubei/",
+        "CAMI": "http://cami-youtubei.sandbox.googleapis.com/youtubei/",
     },
     GoogleSearch: "https://www.google.com/",
 }
