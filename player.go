@@ -238,6 +238,17 @@ func extractSigTimestamp(player_js string) (int, error) {
 func extractSigSourceCode(player_js string, g *FindVariableResult) (string, error) {
 	matches := signatureSourceCodeRe.FindStringSubmatch(player_js)
 
+	if len(matches) == 0 && g != nil && g.Name != "" {
+		escaped_name := regexp.QuoteMeta(g.Name)
+		lookup_regex_str := fmt.Sprintf(`function\(([A-Za-z_0-9]+)\)\{([A-Za-z_0-9]+=[A-Za-z_0-9]+\[%s\[\d+\]\]\([^)]*\)([\s\S]+?)\[%s\[\d+\]\]\([^)]*\))\}`, escaped_name, escaped_name)
+		lookup_regex := regexp.MustCompile(lookup_regex_str)
+		matches = lookup_regex.FindStringSubmatch(player_js)
+	}
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("failed to extract signature decipher algorithm")
+	}
+
 	var_name := string(matches[1])
 
 	// Split on "." or "["
@@ -245,16 +256,40 @@ func extractSigSourceCode(player_js string, g *FindVariableResult) (string, erro
 	var obj_name string
 
 	if len(splitParts) > 0 {
-		obj_name = strings.TrimSpace(strings.ReplaceAll(splitParts[0], ";", ""))
-	}
-	re := regexp.MustCompile(fmt.Sprintf(`(?sm)var %s={(.*?)}\;`, obj_name))
-	if !re.MatchString(player_js) {
-		return "", fmt.Errorf("object %s not found", obj_name)
+		potential_obj_name := strings.TrimSpace(strings.ReplaceAll(splitParts[0], ";", ""))
+		if regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*$`).MatchString(potential_obj_name) {
+			obj_name = potential_obj_name
+		} else {
+			obj_name = potential_obj_name
+			fmt.Printf("Warning: Potentially complex object name found: %s\n", obj_name)
+		}
 	}
 
-	functions := re.FindStringSubmatch(player_js)[1]
+	if obj_name == "" {
+		return "", fmt.Errorf("could not determine object name from decipher logic: %s", matches[3])
+	}
 
-	return fmt.Sprintf("%s;function descramble_sig(%s) { let %s={%s}; %s} descramble_sig(sig);", g.Result, var_name, obj_name, functions, matches[2]), nil
+	re := regexp.MustCompile(fmt.Sprintf(`(?sm)var\s+\Q%s\E\s*=\s*\{(.*?)\}\s*;`, obj_name))
+	obj_matches := re.FindStringSubmatch(player_js)
+
+	if len(obj_matches) < 2 {
+		re = regexp.MustCompile(fmt.Sprintf(`(?sm)\Q%s\E\s*=\s*\{(.*?)\}\s*;`, obj_name))
+		obj_matches = re.FindStringSubmatch(player_js)
+		if len(obj_matches) < 2 {
+			return "", fmt.Errorf("object definition for '%s' not found", obj_name)
+		}
+	}
+
+	functions := obj_matches[1]
+
+	globalVarCode := g.Result
+	if !strings.HasSuffix(strings.TrimSpace(globalVarCode), ";") {
+		globalVarCode += ";"
+	}
+
+	decipherLogic := matches[2]
+
+	return fmt.Sprintf("%s function descramble_sig(%s) { let %s={%s}; %s } descramble_sig(sig);", globalVarCode, var_name, obj_name, functions, decipherLogic), nil
 }
 
 func extractNSigSourceCode(data string, g *FindVariableResult) (name string, code string, err error) {
